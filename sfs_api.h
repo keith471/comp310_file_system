@@ -19,7 +19,7 @@
 // Number of blocks needed to store the inode table
 #define NUM_INODE_BLOCKS (sizeof(inode_t) * NUM_INODES / BLOCK_SZ + 1) // +1 to give ceiling, rather than floor
 
-#define NUM_BIT_MAP_BLOCKS NUM_BLOCKS / (8 * BLOCK_SZ) + 1; // +1 to give ceiling
+#define NUM_BIT_MAP_BLOCKS (NUM_BLOCKS / (8 * BLOCK_SZ) + 1) // +1 to give ceiling
 
 // Maximum number directory entries in the directory table. We can only have as
 // many files as we have available inodes - 1, as the first inode is always for
