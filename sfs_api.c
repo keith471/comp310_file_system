@@ -1,11 +1,10 @@
-#include "sfs_api.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include "sfs_api.h"
 #include "disk_emu.h"
 #include "bitmap.h"
+#include "common.h"
 
 // In-memory cached data structures
 superblock_t sb;
