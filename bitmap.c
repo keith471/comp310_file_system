@@ -1,25 +1,8 @@
 // free bitmap for OS file systems assignment
 
 #include "bitmap.h"
-#include "sfs_api.h"  // for NUM_BLOCKS
 
 #include <strings.h>    // for `ffs`
-
-/* constants */
-// how far to loop in array
-// NUM_BLOCKS is the total number of blocks on disk
-#define SIZE (NUM_BLOCKS/8)
-
-/* globals */
-// the actual data. initialize all bits to high (1), indicating free
-uint8_t free_bit_map[SIZE] = { [0 ... SIZE-1] = UINT8_MAX };
-
-/* macros */
-#define FREE_BIT(_data, _which_bit) \
-    _data = _data | (1 << _which_bit)
-
-#define USE_BIT(_data, _which_bit) \
-    _data = _data & ~(1 << _which_bit)
 
 /**
  * Sets a specific bit as used
