@@ -9,16 +9,36 @@
 
 #include "sfs_api.h"
 
-int main() {
-    mksfs(0);
-    int f = sfs_fopen("some_name.txt");
+int main(int argc, char* argv[]) {
     
-    char my_data[] = "The quick brown fox jumps over the lazy dog";
-    char out_data[1024];
-    sfs_fwrite(f, my_data, sizeof(my_data)+1);
-    sfs_fseek(f, 0);
-    sfs_fread(f, out_data, sizeof(out_data)+1);
-    printf("%s\n", out_data);
+    int init_fs;
+    if (argc != 2) {
+        printf("Error - enter 0 to open an existing file system or 1 to create a new file system\n");
+        return 0;
+    } else {
+        init_fs = atoi(argv[1]);
+    }
+    mksfs(init_fs);
+    if (init_fs) {
+        // Writing a new file system
+    
+	    int f = sfs_fopen("some_name.txt");
+	    
+	    char my_data[] = "The quick brown fox jumps over the lazy dog";
+	    char out_data[1024];
+	    sfs_fwrite(f, my_data, sizeof(my_data)+1);
+	    sfs_fseek(f, 0);
+	    sfs_fread(f, out_data, sizeof(out_data)+1);
+	    printf("%s\n", out_data);
 
-    sfs_fclose(f);
+	    sfs_fclose(f);
+    } else {
+        // Try to read the file that was written when creating a new disk
+            int f = sfs_fopen("some_name.txt");
+	    char out_data[1024];
+	    sfs_fseek(f, 0);
+	    sfs_fread(f, out_data, sizeof(out_data)+1);
+	    printf("%s\n", out_data);
+	    sfs_fclose(f);
+    }
 }

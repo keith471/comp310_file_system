@@ -99,7 +99,7 @@ int sfs_fopen(char *name) {
     // Search the directory for the file
     // If file exists, then open it in append mode
     // else,
-    // 1. allocate and initialize and inode. Figure out an empty inode slot in the inode table
+    // 1. allocate and initialize an inode. Figure out an empty inode slot in the inode table
     // and save the inode to this slot.
     // 2. Write the mapping between the inode and the file name in the root directory: write it to the copy in memory
     // and then write the copy back to disk
@@ -109,13 +109,14 @@ int sfs_fopen(char *name) {
     /*
      * For now, we only return 1
      */
-
-    uint64_t test_file = 1; // The inode number
+    //inode_t newInode = malloc(sizeof(inode_t));
+    //newInode.size = 0;
+    uint64_t test_file = 0; // The file descriptor
 
     fdt[test_file].inode = 1;
     fdt[test_file].rwptr = 0;
 
-	return test_file;
+    return test_file;
 }
 
 /**
@@ -124,11 +125,10 @@ int sfs_fopen(char *name) {
  * Returns 0 on success and a negative number otherwise
  */
 int sfs_fclose(int fileID){
-
-	  //Implement sfs_fclose here
+    //Implement sfs_fclose here
     fdt[0].inode = 0;
     fdt[0].rwptr = 0;
-	  return 0;
+    return 0;
 }
 
 /**
@@ -138,14 +138,13 @@ int sfs_fclose(int fileID){
  * Returns the number of bytes read
  */
 int sfs_fread(int fileID, char *buf, int length){
-
-	  //Implement sfs_fread here
+    //Implement sfs_fread here
     file_descriptor* f = &fdt[fileID];
     inode_t* n = &inode_table[f->inode];
 
     int block = n->data_ptrs[0];
     read_blocks(block, 1, (void*) buf);
-	  return 0;
+    return 0;
 }
 
 /**
@@ -181,7 +180,7 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     f->rwptr += length;
     write_blocks(block, 1, (void*) buf);
 
-	return 0;
+    return 0;
 }
 
 /**
