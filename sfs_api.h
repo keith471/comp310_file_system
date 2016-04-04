@@ -3,6 +3,18 @@
 
 #include <stdint.h>
 
+#define MAXFILENAME 60
+#define KEITHS_DISK "sfs_disk.disk"
+#define BLOCK_SZ 1024   // Block size in bytes
+#define NUM_BLOCKS 100  // Number of blocks of the entire disk
+#define NUM_INODES 10   // Number of inodes in the inode table
+#define MAX_FILE_SIZE BLOCK_SZ * 12 + (BLOCK_SZ / sizeof(unsigned int) * BLOCK_SZ // Max file size in bytes
+#define NUM_INODE_BLOCKS (sizeof(inode_t) * NUM_INODES / BLOCK_SZ + 1) // Number of blocks needed to store the inode table, +1 to give ceiling, rather than floor
+#define NUM_BIT_MAP_BLOCKS (NUM_BLOCKS / (8 * BLOCK_SZ) + 1) // Number of blocks needed to store the bitmap; +1 to give ceiling
+#define MAX_DIRECTORY_ENTRIES NUM_INODES - 1  // Maximum number directory entries in the directory table. We can only have as
+                                              // many files as we have available inodes - 1, as the first inode is always for
+                                              // the root directory
+
 typedef struct {
     uint64_t magic;       // These are unsigned long long ints
     uint64_t block_size;
@@ -49,5 +61,42 @@ int sfs_fread(int fileID, char *buf, int length);
 int sfs_fwrite(int fileID, const char *buf, int length);
 int sfs_fseek(int fileID, int loc);
 int sfs_remove(char *file);
+
+// MARK - bitmap stuff
+/**
+ * NUM_BLOCKS is the total number of blocks on disk
+ * Thus, SIZE is the total number of entries we need in our bitmap array, since
+ * each entry contains an unsigned char of 8 bits
+ */
+#define BIT_MAP_SIZE (NUM_BLOCKS/8)
+
+/* macros */
+#define FREE_BIT(_data, _which_bit) \
+    _data = _data | (1 << _which_bit)
+
+#define USE_BIT(_data, _which_bit) \
+    _data = _data & ~(1 << _which_bit)
+
+/*
+ * @short force an index to be set.
+ * @long Use this to setup your superblock, inode table and free bit map
+ *       This has been left unimplemented. You should fill it out.
+ *
+ * @param index index to set
+ *
+ */
+void force_set_index(uint32_t index);
+
+/*
+ * @short find the first free data block
+ * @return index of data block to use
+ */
+uint32_t get_index();
+
+/*
+ * @short frees an index
+ * @param index the index to free
+ */
+void rm_index(uint32_t index);
 
 #endif //_INCLUDE_SFS_API_H_

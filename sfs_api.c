@@ -1,16 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>    // for `ffs`
 #include "sfs_api.h"
 #include "disk_emu.h"
-#include "bitmap.h"
-#include "common.h"
 
 // In-memory cached data structures
 superblock_t sb;
 inode_t inode_table[NUM_INODES]; // The inode table, an array of inode structs
 int inode_table_status[NUM_INODES] = {[0 ... NUM_INODES-1] = 1}; // Remembers which inodes of the inode table are used (0) and which are free (1)
 directory_entry directory_table[MAX_DIRECTORY_ENTRIES];  // The directory table, an array of directory entry structs
+uint8_t free_bit_map[BIT_MAP_SIZE] = { [0 ... BIT_MAP_SIZE-1] = UINT8_MAX };
 
 file_descriptor fdt[NUM_INODES];
 
@@ -212,4 +212,52 @@ int sfs_remove(char *file) {
 
 	//Implement sfs_remove here
 	return 0;
+}
+
+
+// MARK -  Bitmap helpers
+/**
+ * Sets a specific bit as used
+ * index is the number of the bit that we wish to set as used
+ */
+void force_set_index(uint32_t index) {
+    int i = index / 8; // i is the index of the entry of the free_bit_map we wish to change
+    int which_bit = index % 8;
+    USE_BIT(free_bit_map[i], which_bit);
+}
+
+/**
+ * Gets the number of the first available free bit in the bitmap
+ */
+uint32_t get_index() {
+    uint32_t i = 0;
+
+    // find the first section with a free bit
+    // let's ignore overflow for now...
+    while (free_bit_map[i] == 0) { i++; }
+
+    // now, find the first free bit
+    // ffs has the lsb as 1, not 0. So we need to subtract
+    uint8_t bit = ffs(free_bit_map[i]) - 1;
+
+    // set the bit to used
+    USE_BIT(free_bit_map[i], bit);
+
+    //return which bit we used
+    return i*8 + bit;
+}
+
+/**
+ * Frees the bit with number "index"
+ */
+void rm_index(uint32_t index) {
+
+    // get index in array of which bit to free
+    uint32_t i = index / 8;
+
+    // get which bit to free
+    uint8_t bit = index % 8;
+
+    // free bit
+    FREE_BIT(free_bit_map[i], bit);
 }
