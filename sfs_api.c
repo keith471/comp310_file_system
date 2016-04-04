@@ -42,19 +42,22 @@ void mksfs(int fresh) {
         write_blocks(1, sb.inode_table_len, inode_table);
 
         // write free block list
-        // TODO: Implement
+        write_blocks(1+sb.inode_table_len, NUM_BIT_MAP_BLOCKS,  free_bit_map);
 
     } else {
         printf("reopening file system\n");
         // initialize the disk
         init_disk(KEITHS_DISK, BLOCK_SZ, NUM_BLOCKS);
+
         // read the super block from disk into memory
         read_blocks(0, 1, &sb);
         printf("Block Size is: %llu\n", sb.block_size);
+
         // read the inode table from disk into memory
         read_blocks(1, sb.inode_table_len, inode_table);
 
-        // TODO: read the free bit map from disk into memory
+        // read the free bit map from disk into memory
+        read_blocks(1+sb.inode_table_len, NUM_BIT_MAP_BLOCKS, free_bit_map);
     }
 	  return;
 }

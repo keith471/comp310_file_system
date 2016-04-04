@@ -1,11 +1,6 @@
-- what is size field of inode? Bytes or blocks?
 - clang: error: cannot specify -o when generating multiple output files
-- why +1 in NUM_INODE_BLOCKS? (sfs_api.c)
-- Don't need to worry about multiple processes accessing the same file at the same time?
-Then we'd need to search the fd table for the file being opened and make sure it's not already open.
-If already open, we'd have to return the fd of the existing entry so that both processes point to the
-same fd entry.
 
+- We need to remember what inodes are being used and which aren't
 
 Free bit map
 let 1 represent free, 0 used
