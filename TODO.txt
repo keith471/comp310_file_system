@@ -1,0 +1,46 @@
+Data structures we need:
+1. inodes
+ - inode struct
+ - inode table = array of inode structs of length # inodes available on disk
+ - initially, all entries in the array are uninitialized except for the first, which is for the root directory
+
+ 2. root directory
+  - directory entry struct = struct containing the fields necessary for an entry in the directory
+  - directory table = array containing directory entries
+  - must be initialized with size = ???????????????????????
+
+3. super block
+ - a struct with all super block fields
+ - write this to the first block on disk - easy
+
+4. free bit max
+ - contains one bit per block on disk
+ - 1 indicates the block is free, 0 used
+
+5. file descriptor table
+ - index into table = file descriptor = fileID
+ - table entry contains a struct with two fields:
+    - rwpointer = the byte within the given file at which to begin reading or writing
+    - inode number = the index of the inode table in which the inode for the given file is stored
+
+Upon fresh start up, we initialize an empty root directory table, an empty file descriptor table,
+an empty inode table, some datastructure to keep track of what inodes are in use and which aren't,
+a bit map with all ones, and a superblock.
+
+We generate an inode for the root directory and add it to the inode table.
+The root directory will have zero size to begin with so we need not write any blocks for it.
+As files are added to the system, we create directory_entrys, add them to the directory_table,
+and write the new directory entries to disk, increasing the size of the root directory. Thus, we
+will need to modify the inode for root directory in the inode table, and rewrite the inode to disk.
+Summary for adding a new file:
+1. Create a new directory entry
+2. Add it to the directory table
+3. Modify the inode for the root directory in the inode table
+4. Rewrite the inode table to disk
+5. Rewrite the directory table to disk
+
+We write the superblock to the first block on disk,
+then the inode table to the next blocks, then the bit map to the next blocks.
+
+When you need to read the value of an indirect pointer, just read the entire block of indirect pointers into an array
+indirect_ptrs[BLOCK_SZ/4] and then index into the array to get the ptr you need.

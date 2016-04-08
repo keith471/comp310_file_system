@@ -6,14 +6,18 @@
 #define MAXFILENAME 60
 #define KEITHS_DISK "sfs_disk.disk"
 #define BLOCK_SZ 1024   // Block size in bytes
-#define NUM_BLOCKS 100  // Number of blocks of the entire disk
-#define NUM_INODES 10   // Number of inodes in the inode table
+#define NUM_BLOCKS 3100  // Number of blocks of the entire disk
+#define NUM_INODES 110   // Number of inodes in the inode table
 #define MAX_FILE_SIZE BLOCK_SZ * 12 + (BLOCK_SZ / sizeof(unsigned int) * BLOCK_SZ // Max file size in bytes
 #define NUM_INODE_BLOCKS (sizeof(inode_t) * NUM_INODES / BLOCK_SZ + 1) // Number of blocks needed to store the inode table, +1 to give ceiling, rather than floor
-#define NUM_BIT_MAP_BLOCKS (NUM_BLOCKS / (8 * BLOCK_SZ) + 1) // Number of blocks needed to store the bitmap; +1 to give ceiling
 #define MAX_DIRECTORY_ENTRIES NUM_INODES - 1  // Maximum number directory entries in the directory table. We can only have as
                                               // many files as we have available inodes - 1, as the first inode is always for
                                               // the root directory
+#define ROOT_DIRECTORY_SIZE_IN_BYTES sizeof(directory_entry_t) * MAX_DIRECTORY_ENTRIES
+#define ROOT_DIRECTORY_SIZE_IN_BLOCKS ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ
+#define FD_TABLE_SIZE NUM_INODES - 1
+#define NUM_INDIRECT_POINTERS BLOCK_SZ/sizeof(int)
+#define NUM_DIRECT_POINTERS = 12
 
 typedef struct {
     uint64_t magic;       // These are unsigned long long ints
@@ -24,13 +28,10 @@ typedef struct {
 } superblock_t;
 
 typedef struct {
-    unsigned int mode;      // The permissions of the file/folder. Set them but don't worry about them otherwise for this assignment.
-    unsigned int link_cnt;  // Number of other programs that have links to the file/folder. Set but don't worry about.
-    unsigned int uid;       // ID of owner of file. Set but don't worry about.
-    unsigned int gid;       // Group ID of file. Set but don't worry about.
     unsigned int size;      // Size of file, in bytes.
-    unsigned int data_ptrs[12]; // Direct pointers
-    // TODO indirect pointer
+    unsigned int is_used;      // An addition - not normally in an inode but I add it to track whether the inode is used or not. If 1, used, if 0, free.
+    unsigned int data_ptrs[NUM_DIRECT_POINTERS]; // Direct pointers
+    unsigned int indirect_ptr;  // An indirect ptr. It's value is a the number of a block containing BLOCK_SZ/4 direct pointers
 } inode_t;
 
 /*
@@ -38,9 +39,9 @@ typedef struct {
  * rwptr    where in the file to start
  */
 typedef struct {
-    uint64_t inode; // The inode number
+    uint64_t inode_no; // The inode number
     uint64_t rwptr; // The byte of the file the rwpointer is at
-} file_descriptor;  // The file descriptor's number is the index into the merged file descriptor and open files table
+} file_descriptor_t;  // The file descriptor's number is the index into the merged file descriptor and open files table
 
 /**
  * Directory entry
@@ -48,9 +49,9 @@ typedef struct {
  * file_name - the name of the file
  */
 typedef struct {
-    uint64_t inode;
+    uint64_t inode_no;
     char* file_name;
-} directory_entry;
+} directory_entry_t;
 
 void mksfs(int fresh);
 int sfs_getnextfilename(char *fname);
