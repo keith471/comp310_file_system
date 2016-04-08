@@ -246,6 +246,7 @@ void flush_inode_table() {
 }
 
 // QUESTION
+// CONFIRM that write_blocks writes exactly 1 block's worth of bytes from the buffer
 /**
  * Copies the directory_table into a character array and returns a pointer to the start of it
  */
@@ -278,7 +279,6 @@ void flush_root_directory() {
  ****************************************************/
 
 void mksfs(int fresh) {
-	  //Implement mksfs here
     if (fresh) {
         printf("making new file system\n");
 
@@ -423,7 +423,6 @@ int sfs_fopen(char *name) {
  * Returns 0 on success and a negative number otherwise
  */
 int sfs_fclose(int fileID){
-    //Implement sfs_fclose here
     fdt[0].inode = 0;
     fdt[0].rwptr = 0;
     return 0;
@@ -436,7 +435,7 @@ int sfs_fclose(int fileID){
  * Returns the number of bytes read
  */
 int sfs_fread(int fileID, char *buf, int length){
-    //Implement sfs_fread here
+
     file_descriptor_t* f = &fdt[fileID];
     inode_t* n = &inode_table[f->inode];
 
@@ -455,8 +454,6 @@ int sfs_fread(int fileID, char *buf, int length){
  * Returns the number of bytes written
  */
 int sfs_fwrite(int fileID, const char *buf, int length){
-
-	  //Implement sfs_fwrite here
 
     // Determine if the write will increase the size of the file
     // If so,
@@ -506,7 +503,6 @@ int sfs_fseek(int fileID, int loc){
  * blocks used by the file
  */
 int sfs_remove(char *file) {
-    //Implement sfs_remove here
     return 0;
 }
 

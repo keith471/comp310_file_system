@@ -1,14 +1,4 @@
-- clang: error: cannot specify -o when generating multiple output files
-
-- We need to remember what inodes are being used and which aren't
-
-Free bit map
-let 1 represent free, 0 used
-
-ffs c function can determine if a block has been used
-
-force_set_index -> one liner with the USE_BIT macro
-
+1. How to increment a buffer pointer?
 
 For testing fuse wrapper
 echo "some stuff" > out.txt

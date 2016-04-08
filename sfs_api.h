@@ -17,7 +17,7 @@
 #define ROOT_DIRECTORY_SIZE_IN_BLOCKS ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ
 #define FD_TABLE_SIZE NUM_INODES - 1
 #define NUM_INDIRECT_POINTERS BLOCK_SZ/sizeof(int)
-#define NUM_DIRECT_POINTERS = 12
+#define NUM_DIRECT_POINTERS 12
 
 typedef struct {
     uint64_t magic;       // These are unsigned long long ints
