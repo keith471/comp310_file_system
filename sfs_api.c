@@ -24,11 +24,8 @@ uint8_t free_bit_map[BIT_MAP_SIZE] = { [0 ... BIT_MAP_SIZE-1] = UINT8_MAX };
 // We can have a maximum of NUM_INODES - 1 files open at once, since we have NUM_INODES - 1 inodes available for files
 file_descriptor_t fd_table[FD_TABLE_SIZE];
 
-//#define NUM_BIT_MAP_BLOCKS (NUM_BLOCKS / (8 * BLOCK_SZ) + 1) // Number of blocks needed to store the bitmap; +1 to give ceiling
-
-// The file descriptor table
-file_descriptor_t fdt[NUM_INODES];
-
+// For use with sfs_getnextfilename
+int next_dir_index;
 
 /***********************************
  * A boat-load of helper functions
@@ -72,6 +69,26 @@ void init_root_dir_inode() {
         write_blocks(inode_table[0].indirect_ptr, 1, indirect_ptrs);
     }
 
+}
+
+/**
+ * Initializes the global "next_dir_index" to the first used directory table entry
+ */
+initialize_next_dir_index() {
+    next_dir_index = get_next_filled_directory_entry_starting_at(0);
+}
+
+/**
+ * Updates the value of the global variable next_dir_index
+ * Returns 1 if there is another file in the directory and 0 otherwise
+ */
+int update_next_dir_index() {
+    next_dir_index = get_next_filled_directory_entry_starting_at(next_dir_index + 1);
+    if (next_dir_index == -1) {
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
 /**
@@ -134,6 +151,23 @@ int get_next_available_inode() {
 int get_next_available_directory_entry() {
     for (int i = 0; i < MAX_DIRECTORY_ENTRIES; i++) {
         if (directory_table[i].inode_no == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Iterates through the directory table starting at index "index" and returns the index of the first occupied entry,
+ * or -1 if no occupied entries after the given index
+ */
+int get_next_filled_directory_entry_starting_at(int index) {
+    if (index >= MAX_DIRECTORY_ENTRIES) {
+        printf("Error: index out of bounds for directory_table.\n");
+        return -1;
+    }
+    for (int i = index; i < MAX_DIRECTORY_ENTRIES; i++) {
+        if (directory_table[i].inode_no != 0) {
             return i;
         }
     }
@@ -245,8 +279,6 @@ void flush_inode_table() {
     write_blocks(1 + NUM_BIT_MAP_BLOCKS, sb.inode_table_len, inode_table);
 }
 
-// QUESTION
-// CONFIRM that write_blocks writes exactly 1 block's worth of bytes from the buffer
 /**
  * Copies the directory_table into a character array and returns a pointer to the start of it
  */
@@ -262,11 +294,13 @@ char* convert_directory_table_to_char_array() {
 void flush_root_directory() {
     // We need to flush the entire root directory to disk. This means we have to get the blocks pointed to
     // by the root directory's inode one by one, and incrementally write the directory_table to these blocks
-    char* buf = convert_directory_table_to_char_array();
+    //char* buf = convert_directory_table_to_char_array();
+    // Cast directory_table to a char pointer so we can increment it by bytes rather than sizeof(directory_entry_t)
+    char* p = (char *) directory_table;
     for (int i = 0, j = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++, j += BLOCK_SZ) {
         int block_no = get_block_number_containing_byte_for_inode(0, j);
         if (block_no !=  -1) {
-            write_blocks(block_no, 1, buf + j);
+            write_blocks(block_no, 1, p + j);
         } else {
             printf("Attempted to access memory outside of the scope of the directory table - root directory flush failed.\n");
             break;
@@ -331,20 +365,32 @@ void mksfs(int fresh) {
         // read the free bit map from disk into memory
         read_blocks(1+sb.inode_table_len, NUM_BIT_MAP_BLOCKS, free_bit_map);
     }
+
+    // We also need to initialize next_dir_index
+    initialize_next_dir_index();
+
 	  return;
 }
+
+/***
+ * How should this function work?
+ Global variable initialized to first file in directory
+ Increment each time sfs_getnextfilename is called
+ */
 
 /**
  * Copies the name of the next file in the directory into fname
  * Returns 1 if there is another file in the directory, after
  *   the one whose name it just copied into fname
- * Returns 0 if it got the name of the last file int the directory
+ * Returns 0 if it got the name of the last file in the directory
  */
 int sfs_getnextfilename(char *fname) {
-
-	  //Implement sfs_getnextfilename here
-    // must remember the current position in the directory at each call
-	  return 0;
+    if (next_dir_index == -1) {
+        printf("Error: There are no more directory entries. This function should not have been called.\n");
+        return 0;
+    }
+    strcpy(fname, directory_table[next_dir_index].file_name);
+    return update_next_dir_index();
 }
 
 /**
@@ -418,25 +464,35 @@ int sfs_fopen(char *name) {
 }
 
 /**
- * Closes a file. All this involves is removing the entry at index fileID
+ * Closes a file. All this involves is resetting the entry at index fileID
  * from the file descriptor table
- * Returns 0 on success and a negative number otherwise
+ * Returns 0 on success and -1 number otherwise
  */
 int sfs_fclose(int fileID){
-    fdt[0].inode = 0;
-    fdt[0].rwptr = 0;
+    fd_table[fileID].inode = 0;
+    fd_table[fileID].rwptr = 0;
     return 0;
 }
 
 /**
- * Read length bytes into buf of the file corresponding to file descriptor
- * table entry fileID, starting with the byte of the file indicated by the file's
+ * Read length bytes of the file corresponding to file descriptor
+ * table entry fileID into buf, starting with the byte of the file indicated by the file's
  * rwpointer
  * Returns the number of bytes read
+ * QUESTION: Should this increase the rwpointer for the file? Yes
  */
-int sfs_fread(int fileID, char *buf, int length){
+int sfs_fread(int fileID, char *buf, int length) {
 
-    file_descriptor_t* f = &fdt[fileID];
+    // We have the file descriptor, so we can get the rwptr and the inode for the file, which we
+    // can then use to get the block number we wish to read
+    // We need to figure out how to loop this until we read all length bytes
+    // We need a function that takes a start byte and a length of bytes to read, and determines the range of block numbers to be read
+
+    // It seems we need to read each entire block containing some of the bytes we want to memory, and then copy over
+    // the part of the block we want to char* buf
+    int block_no = get_block_number_containing_byte_for_inode(fd_table[fileID].inode_no, fd_table[fileID].rwptr);
+
+    file_descriptor_t* f = &fd_table[fileID];
     inode_t* n = &inode_table[f->inode];
 
     int block = n->data_ptrs[0];
@@ -452,6 +508,7 @@ int sfs_fread(int fileID, char *buf, int length){
  * rwpointer + length to size of file as stored int the file's inode entry, which
  * we already have in memory, so it's very simple to get this value
  * Returns the number of bytes written
+ * QUESTION: Should it change the rwptr to the end of the freshly-written data? Yes. Use seek
  */
 int sfs_fwrite(int fileID, const char *buf, int length){
 
@@ -461,7 +518,7 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     // 2. Modify file's inode to point to these blocks
     // 3. Write the data in buf to these blocks, which are in mem
     // 4. Flush all the data to disk
-    file_descriptor_t* f = &fdt[fileID];
+    file_descriptor_t* f = &fd_table[fileID];
     inode_t* n = &inode_table[fileID];
 
     /*
@@ -487,13 +544,19 @@ int sfs_fwrite(int fileID, const char *buf, int length){
  */
 int sfs_fseek(int fileID, int loc){
 
-    // TODO
     /* Perform error checking:
      * If loc > size, we are moving the pointer past the end of the file. This
      * is not allowed.
      * If loc is negative, this, of course, is not allowed
      */
-    fdt[fileID].rwptr = loc;
+    if (loc > inode_table[fd_table[fileID].inode_no].size) {
+        printf("Error: Attempting to seek past the end of a file.\n");
+        return -1;
+    } else if (loc < 0) {
+        printf("Error: Attempting to seek before the start of a file.\n");
+        return -1;
+    }
+    fd_table[fileID].rwptr = loc;
 	  return 0;
 }
 

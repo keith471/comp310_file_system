@@ -1,3 +1,14 @@
+atom fonts package
+font source code pro
+ONOS
+Write a function that takes the nth block of a file and returns the block_no for that block!
+Then, for read:
+- Figure out the first block to read
+- figure out the last block to read by adding length to rwpointer
+- allocate a buffer with size char my_buf[(last_block - first_block + 1)*BLOCK_SZ]
+- iterate over this range of blocks, getting the block_no and reading that block into my_buf
+- at the end of it all, perform a memcpy(buf, mybuf + (rwptr % BLOCK_SZ), length)
+
 Data structures we need:
 1. inodes
  - inode struct
