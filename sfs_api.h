@@ -8,7 +8,10 @@
 #define BLOCK_SZ 1024   // Block size in bytes
 #define NUM_BLOCKS 3100  // Number of blocks of the entire disk
 #define NUM_INODES 110   // Number of inodes in the inode table
-#define MAX_FILE_SIZE BLOCK_SZ * 12 + (BLOCK_SZ / sizeof(unsigned int) * BLOCK_SZ // Max file size in bytes
+#define NUM_INDIRECT_POINTERS BLOCK_SZ/sizeof(int)
+#define NUM_DIRECT_POINTERS 12
+#define MAX_BLOCKS_PER_FILE (NUM_DIRECT_POINTERS + NUM_INDIRECT_POINTERS)
+#define MAX_FILE_SIZE BLOCK_SZ * MAX_BLOCKS_PER_FILE // Max file size in bytes
 #define NUM_INODE_BLOCKS (sizeof(inode_t) * NUM_INODES / BLOCK_SZ + 1) // Number of blocks needed to store the inode table, +1 to give ceiling, rather than floor
 #define MAX_DIRECTORY_ENTRIES NUM_INODES - 1  // Maximum number directory entries in the directory table. We can only have as
                                               // many files as we have available inodes - 1, as the first inode is always for
@@ -16,8 +19,7 @@
 #define ROOT_DIRECTORY_SIZE_IN_BYTES sizeof(directory_entry_t) * MAX_DIRECTORY_ENTRIES
 #define ROOT_DIRECTORY_SIZE_IN_BLOCKS ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ
 #define FD_TABLE_SIZE NUM_INODES - 1
-#define NUM_INDIRECT_POINTERS BLOCK_SZ/sizeof(int)
-#define NUM_DIRECT_POINTERS 12
+
 
 typedef struct {
     uint64_t magic;       // These are unsigned long long ints

@@ -224,7 +224,11 @@ int add_to_root_directory(int inode_no, char* file_name) {
 int get_block_number_containing_byte_for_inode(int inode_no, int byte_no) {
     inode_t inode = inode_table[inode_no];
     // Error checking
-    if (inode.size > byte_no + 1) {
+    if (byte_no < 0) {
+        printf("Error: Attempting to access a byte before the start of the file.\n");
+        return -1;
+    }
+    if (inode.size < byte_no + 1) {
         printf("Error: Attempting to access a byte beyond the scope of the file.\n");
         return -1;
     }
@@ -244,10 +248,15 @@ int get_block_number_containing_byte_for_inode(int inode_no, int byte_no) {
 int get_block_number_corresponding_to_nth_block_for_file(int inode_no, int nth) {
     inode_t inode = inode_table[inode_no];
     // Error checking
+    if (nth < 0) {
+        printf("Error: There are no negative sequential block numbers.\n");
+        return -1;
+    }
     if (nth > (inode.size / BLOCK_SZ)) {
         printf("Error: Attempting to access a block the file does not have.\n");
         return -1;
     }
+    // Error check passed. Proceeding.
     if (nth < NUM_DIRECT_POINTERS) {
         return inode.data_ptrs[nth];
     } else {
@@ -265,6 +274,61 @@ int get_block_number_corresponding_to_nth_block_for_file(int inode_no, int nth) 
  */
 int get_sequential_block_number_containing_byte(int byte_no) {
     return byte_no / BLOCK_SZ;
+}
+
+/**
+ * Takes a number corresponding to the nth consecutive block of the file with the given inode,
+ * and determines if the file has such a block or not. Returns 1 if it does, and 0 if not.
+ */
+int file_has_nth_block(int inode_no, int nth) {
+    // Need to check for the case that the inode size is zero, as if it is then we know the file
+    // is empty and therefore has no blocks allocated to it yet
+    if (inode_table[inode_no].size / BLOCK_SIZE < nth || inode.size == 0) {
+        return 0;
+    } else {
+        return 1;
+    }
+}
+
+/**
+ * Takes an inode number corresponding to a file and allocates the file's nth block.
+ * Updates the file's inode appropriately, but does NOT write it back to disk
+ * Returns the block number of the allocated block, or -1 if the file cannot have an nth block
+ */
+int allocate_nth_block_for_file_with_inode(int inode_no, int nth) {
+    // Error checking
+    if (nth < 0) {
+        printf("Error: Cannot allocate a negative block number.\n");
+        return -1;
+    }
+    if (nth > MAX_BLOCKS_PER_FILE - 1) {
+        printf("Error: The file has already consumed the maximum allowable number of blocks.\n");
+        return -1;
+    }
+    // Get new block
+    int block_no = get_index();
+    // Update inode
+    if (nth < NUM_DIRECT_POINTERS) {
+        inode_table[inode_no].data_ptrs[nth] = block_no;
+    } else if (nth == NUM_DIRECT_POINTERS) {
+        // We are allocating the first block that requires use of the inode's indirect pointer,
+        // so first we need to allocate a block for the indirect pointer
+        int ind_ptrs_block = get_index();
+        inode_table[inode_no].indirect_ptr = ind_ptrs_block;
+        // Have to write an entire block's worth of data to disk, so create an array of an unnecessarily large size
+        int indirect_ptrs[NUM_INDIRECT_POINTERS];
+        indirect_ptrs[0] = block_no;
+        // Write the indirect_ptrs to disk
+        write_blocks(ind_ptrs_block, 1, indirect_ptrs);
+
+    } else {
+        // Read the block of indirect pointers for the file into memory, modify it, and write it back
+        int indirect_ptrs[NUM_INDIRECT_POINTERS];
+        read_blocks(inode_table[inode_no].indirect_ptr, 1, indirect_ptrs);
+        indirect_ptrs[nth - NUM_DIRECT_POINTERS] = block_no;
+        write_blocks(inode_table[inode_no].indirect_ptr, 1, indirect_ptrs);
+    }
+    return block_no;
 }
 
 /****************
@@ -557,28 +621,105 @@ int sfs_fread(int fileID, char *buf, int length) {
  * Writes length bytes of buf into the file at index fileID of
  * the file descriptor table, starting at the byte of the current rwpointer
  * as determined from the file descriptor table.
- * This could increase the size of the file, so be wary of this. Need to compare
- * rwpointer + length to size of file as stored int the file's inode entry, which
- * we already have in memory, so it's very simple to get this value
+ * This could increase the size of the file.
  * Returns the number of bytes written
- * Question: If I increase the size of the file, then I am actually writing length + 1 bytes,
+ * QUESTION: If I increase the size of the file, then I am actually writing length + 1 bytes,
  * due to the null terminator. Is this a problem?
  */
 int sfs_fwrite(int fileID, const char *buf, int length){
 
     // If writing to the end of the file, write one extra byte at the end with value = null terminator
-    // So, we should write length bytes from buf, plus (conditionally)one extra byte for the null terminator
-    // We probably have to include this null terminator as part of the size of the file
+    // So, we should write length bytes from buf, plus (conditionally) one extra byte for the null terminator
+    // We have to include this null terminator as part of the size of the file
+
+    // Basic steps:
+    // Get range of blocks that you wish to write. Allocate some if need be. Any allocated blocks do not need to be
+    // read into memory as they are fresh and there is nothing in them to read
+    // Read these blocks into an array
+    // Overwrite relevant part of the array
+    // Write the blocks back to memory
+    // Update data structures in memory and write them back to disk
 
     int rwptr = fd_table[fileID].rwptr;
     int inode_no = fd_table[fileID].inode_no;
 
+    // Flags that will be used later
+    int extending_file = (rwptr + length > inode_table[inode_no].size);
+    int added_blocks = false;
+
+    int first_block = get_sequential_block_number_containing_byte(rwptr);
+    int last_block = get_sequential_block_number_containing_byte(rwptr + length); // Checked
+
+    // Allocate a buffer to contain the data for all the blocks we need to read from disk
+    char temp_buf[(last_block - first_block + 1)*BLOCK_SZ];
+
+    // Iterate, reading one block at a time, and writing it to temp_buf
+    for (int i = first_block; i <= last_block; i++) {
+        if (file_has_nth_block(i)) {
+            int block_no = get_block_number_corresponding_to_nth_block_for_file(inode_no, i);
+            if (block_no == -1) {
+                return -1; // error
+            }
+            read_blocks(block_no, 1, temp_buf + (i % first_block) * BLOCK_SZ);
+        } else {
+            // Allocate a new block for the file
+            // No need to read it, as it doesn't yet contain any file data
+            int block_no = allocate_nth_block_for_file_with_inode(inode_no, i);
+            if (block_no == -1) {
+                return -1; // error
+            }
+            added_blocks = true;
+        }
+    }
+    // Overwrite part of this block of data by writing length bytes of buf to temp_buf
+    // starting at block_data + (rwptr % BLOCK_SZ)
+    memcpy(temp_buf + (rwptr % BLOCK_SZ), buf, length);
+
+    // If we are extending the file, then add a new null terminator to the end of the file
+    if (extending_file) {
+        temp_buf[(rwptr % BLOCK_SZ) + length] = '\0';
+        // QUESTION: Do we increment length to indicate that we wrote a new null terminator as well?
+    }
+
+    // Write the blocks back to disk!
+    for (int i = first_block; i <= last_block; i++) {
+        // Could have stored the block numbers in an array or something, but since we are not worried
+        // about the most efficient implementation, I don't bother
+        int block_no = get_block_number_corresponding_to_nth_block_for_file(inode_no, i);
+        write_blocks(block_no, 1, temp_buf + (i % first_block) * BLOCK_SZ);
+    }
+
+    // Update the rwpointer for the file
+    fd_table[fileID].rwptr += length;
+
+    if (extending_file) {
+        // Update the file size, and write the inode table back to disk
+        inode_table[inode_no].size = fd_table[fileID].rwptr + 1;
+        flush_inode_table();
+
+        // Flush the free bit map if need be
+        if (added_blocks) {
+            flush_free_bit_map();
+        }
+        return length + 1;
+    }
+
+    return length;
+
+    /*
     if (rwptr + length > inode_table[inode_no].size) {
         // The write will increase the size of the file
+        // Determine if the write will require the allocation of additional blocks or not
+        // Additional blocks will be required if it is the first write to the file
+        // What are the cases where additional blocks are required?
+        // 1. If size == 0, then no blocks have been allocated to the file yet
+        // 2. If rwptr + length takes us into a new block
+        // What is the case where additional blocks are not required?
+        // Where (rwptr + length - size) < (BLOCK_SZ - (size % BLOCK_SZ))
+
         // If we are increasing the size of the file, but don't need additional blocks, then we need to
         // 1. Read all the blocks, starting with the block containing the rwptr and continuing through
         // the last block into memory
-        //
         // Get the sequential numbers of the first and last blocks we need to read
         int first_block = get_sequential_block_number_containing_byte(rwptr);
         int last_block = get_sequential_block_number_containing_byte(inode_table[inode_no].size);
@@ -609,30 +750,10 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     } else {
         // The write is only overwriting current data in the file
     }
+    */
 
-    // Determine if the write will increase the size of the file
-    // If so,
-    // 1. Allocate disk blocks (mark them as allocated in free block map)
-    // 2. Modify file's inode to point to these blocks
-    // 3. Write the data in buf to these blocks, which are in mem
-    // 4. Flush all the data to disk
-    // 5. Update the rwpointer
-    // 6. Update the size of the file
-    file_descriptor_t* f = &fd_table[fileID];
-    inode_t* n = &inode_table[fileID];
-
-    /*
-     * We know block 1 is free because this is a canned example
-     * You should call a helper function to find a free block
-     */
-
-    int block = 20;
-    n->data_ptrs[0] = block;
-    n->size += length;
-    f->rwptr += length;
-    write_blocks(block, 1, (void*) buf);
-
-    return 0;
+    /*file_descriptor_t* f = &fd_table[fileID];
+    inode_t* n = &inode_table[fileID];*/
 }
 
 /**
@@ -670,7 +791,10 @@ int sfs_remove(char *file) {
 }
 
 
-// MARK -  Bitmap helpers
+/***************************
+ * MARK -  Bitmap helpers
+ ***************************/
+
 /**
  * Sets a specific bit as used
  * index is the number of the bit that we wish to set as used
