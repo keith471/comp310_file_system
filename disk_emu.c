@@ -99,8 +99,11 @@ int read_blocks(int start_address, int nblocks, void *buffer)
     e = 0;
     s = 0;
 
+
+    printf("1\n");
     /*Sets up a temporary buffer*/
     void* blockRead = (void*) malloc(BLOCK_SIZE);
+    printf("2\n");
 
     /*Checks that the data requested is within the range of addresses of the disk*/
     if (start_address + nblocks > MAX_BLOCK)
@@ -111,21 +114,22 @@ int read_blocks(int start_address, int nblocks, void *buffer)
 
     /*Goto the data requested from the disk*/
     fseek(fp, start_address * BLOCK_SIZE, SEEK_SET);
-
+    printf("3\n");
     /*For every block requested*/
     for (i = 0; i < nblocks; ++i)
     {
         /*Pause until the latency duration is elapsed*/
         // usleep(L);
-
         s++;
         fread(blockRead, BLOCK_SIZE, 1, fp);
 
        for (j = 0; j < BLOCK_SIZE; j++)
         {
             memcpy(buffer+(i*BLOCK_SIZE), blockRead, BLOCK_SIZE);
+
         }
     }
+
 
     free(blockRead);
 

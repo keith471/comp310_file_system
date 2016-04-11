@@ -148,8 +148,10 @@ int get_block_number_corresponding_to_nth_block_for_file(int inode_no, int nth) 
     } else {
         // We need to read the block of number inode.indirect_ptr into memory
         printf("Getting indirect pointer\n");
+        char ind_ptrs[BLOCK_SZ];
+        read_blocks(inode.indirect_ptr, 1, ind_ptrs);
         int indirect_ptrs[NUM_INDIRECT_POINTERS];
-        read_blocks(inode.indirect_ptr, 1, indirect_ptrs);
+        memcpy(indirect_ptrs, ind_ptrs, sizeof(indirect_ptrs));
         // Now, we need to return the (nth - NUM_DIRECT_POINTERS)th pointer in the indirect_ptrs array
         return indirect_ptrs[nth - NUM_DIRECT_POINTERS];
     }
@@ -202,7 +204,7 @@ int get_sequential_block_number_containing_byte(int byte_no) {
    * Flush free bit map
    */
  void flush_free_bit_map() {
-     write_blocks(1, NUM_BIT_MAP_BLOCKS,  free_bit_map);
+     write_blocks(1, NUM_BIT_MAP_BLOCKS, free_bit_map);
  }
 
  /**
@@ -340,8 +342,10 @@ int allocate_nth_block_for_file_with_inode(int inode_no, int nth) {
 
     } else {
         // Read the block of indirect pointers for the file into memory, modify it, and write it back
+        char ind_ptrs[BLOCK_SZ];
+        read_blocks(inode_table[inode_no].indirect_ptr, 1, ind_ptrs);
         int indirect_ptrs[NUM_INDIRECT_POINTERS];
-        read_blocks(inode_table[inode_no].indirect_ptr, 1, indirect_ptrs);
+        memcpy(indirect_ptrs, ind_ptrs, sizeof(indirect_ptrs));
         indirect_ptrs[nth - NUM_DIRECT_POINTERS] = block_no;
         write_blocks(inode_table[inode_no].indirect_ptr, 1, indirect_ptrs);
     }
@@ -422,7 +426,7 @@ void init_superblock() {
 /**
  * Initializes the first inode entry in the inode table with the information for the root directory
  */
- void init_root_dir_inode() {
+void init_root_dir_inode() {
 
      printf("Right inside init_rdi\n");
      inode_table[0].size = ROOT_DIRECTORY_SIZE_IN_BYTES;
@@ -457,7 +461,7 @@ void init_superblock() {
          printf("Wrote indirect pointers to disk\n");
      }
 
- }
+}
 
 /**
  * Initializes the global "next_dir_index" to the first used directory table entry
@@ -473,6 +477,56 @@ void initialize_new_inode(int inode_no) {
     inode_table[inode_no].size = 0;
     inode_table[inode_no].is_used = 1;
     flush_inode_table();
+}
+
+/*********************
+ * Restoration helpers
+ *********************/
+
+void restore_superblock() {
+    printf("Size of sb: %d\n", sizeof(sb));
+    char sup_block[BLOCK_SZ];
+    read_blocks(0, 1, sup_block);
+    memcpy(&sb, sup_block, sizeof(sb));
+    printf("Restored superblock\n");
+}
+
+void restore_free_bit_map() {
+    char fbm[BLOCK_SZ * NUM_BIT_MAP_BLOCKS];
+    read_blocks(1, NUM_BIT_MAP_BLOCKS, fbm);
+    memcpy(free_bit_map, fbm, sizeof(free_bit_map));
+    printf("Restored free bit map\n");
+}
+
+void restore_inode_table() {
+    char itable[NUM_INODE_BLOCKS * BLOCK_SZ];
+    printf("inode table length should be: %d\n", NUM_INODE_BLOCKS);
+    printf("inode table length: %d\n", sb.inode_table_len);
+    printf("Number of bit map blocks: %d\n", NUM_BIT_MAP_BLOCKS);
+    read_blocks(1 + NUM_BIT_MAP_BLOCKS, 1, itable);
+    memcpy(inode_table, itable, sizeof(inode_table));
+    //read_blocks(1, 1, itable);
+    printf("Restored inode table\n");
+    //fflush(stdout);
+}
+
+void restore_directory_table() {
+    char dir_table[ROOT_DIRECTORY_SIZE_IN_BLOCKS * BLOCK_SZ];
+    //char* p = (char *) directory_table;
+    for (int i = 0, j = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++, j += BLOCK_SZ) {
+       printf("i: %d, j: %d\n", i, j);
+       int block_no = get_block_number_containing_byte_for_inode(0, j);
+       read_blocks(block_no, 1, dir_table + j);
+    }
+    memcpy(directory_table, dir_table, sizeof(directory_table));
+    printf("Restored directory table\n");
+}
+
+void restore_all() {
+    restore_superblock();
+    restore_free_bit_map();
+    restore_inode_table();
+    restore_directory_table();
 }
 
 /*********************************************************************************
@@ -495,7 +549,7 @@ void mksfs(int fresh) {
         printf("Init superblock passed\n");
         // Use first block for the superblock
         force_set_index(0);
-        write_blocks(0, 1, &sb);
+        flush_superblock();
 
         printf("Wrote superblock\n");
         /**
@@ -519,29 +573,20 @@ void mksfs(int fresh) {
 
         printf("Initialized root directory\n");
         // write inode table to disk
-        write_blocks(1+NUM_BIT_MAP_BLOCKS, sb.inode_table_len, inode_table);
+        flush_inode_table();
 
         printf("Wrote inode table to disk\n");
         // Write free bit map to disk
-        write_blocks(1, NUM_BIT_MAP_BLOCKS,  free_bit_map);
+        flush_free_bit_map();
 
         printf("Wrote bit map to disk\n");
-
 
     } else {
         printf("reopening file system\n");
         // initialize the disk
         init_disk(KEITHS_DISK, BLOCK_SZ, NUM_BLOCKS);
 
-        // read the super block from disk into memory
-        read_blocks(0, 1, &sb);
-        printf("Block Size is: %d\n", sb.block_size);
-
-        // read the inode table from disk into memory
-        read_blocks(1, sb.inode_table_len, inode_table);
-
-        // read the free bit map from disk into memory
-        read_blocks(1+sb.inode_table_len, NUM_BIT_MAP_BLOCKS, free_bit_map);
+        restore_all();
     }
 
     // We also need to initialize next_dir_index

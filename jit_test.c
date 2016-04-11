@@ -31,17 +31,42 @@ int main(int argc, char* argv[]) {
         sfs_fwrite(f, my_data2, sizeof(my_data2));
   	    sfs_fseek(f, 0);
   	    sfs_fread(f, out_data, sizeof(out_data));
-  	    printf("%s\n", out_data);
+
+        printf("%s\n", out_data);
+
+        int f2 = sfs_fopen("keith.txt");
+
+  	    char my_data3[] = "Cool beans.";
+  	    char out_data2[1024];
+  	    sfs_fwrite(f2, my_data3, sizeof(my_data3));
+        char my_data4[] = "Yeah.";
+        sfs_fwrite(f2, my_data4, sizeof(my_data4));
+  	    sfs_fseek(f2, 0);
+  	    sfs_fread(f2, out_data2, sizeof(out_data2));
+
+  	    printf("%s\n", out_data2);
 
   	    sfs_fclose(f);
-        sfs_remove("some_name.txt");
+        sfs_fclose(f2);
+
+        printf("Passed new disk test!\n");
+        //sfs_remove("some_name.txt");
     } else {
         // Try to read the file that was written when creating a new disk
         int f = sfs_fopen("some_name.txt");
   	    char out_data[1024];
   	    sfs_fseek(f, 0);
-  	    sfs_fread(f, out_data, sizeof(out_data)+1);
+  	    sfs_fread(f, out_data, sizeof(out_data));
   	    printf("%s\n", out_data);
   	    sfs_fclose(f);
+
+        int f2 = sfs_fopen("keith.txt");
+  	    char out_data2[1024];
+  	    sfs_fseek(f2, 0);
+  	    sfs_fread(f2, out_data2, sizeof(out_data2));
+  	    printf("%s\n", out_data2);
+  	    sfs_fclose(f2);
+        printf("Passed old disk test!\n");
     }
+    close_disk();
 }
