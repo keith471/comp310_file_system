@@ -24,9 +24,9 @@ int main(int argc, char* argv[]) {
 
   	    int f = sfs_fopen("some_name.txt");
 
-  	    char my_data[] = "The quick brown fox jumps over the lazy dog";
+  	    char my_data[] = "Lazy dog";
   	    char out_data[1024];
-  	    sfs_fwrite(f, my_data, sizeof(my_data)+1);
+  	    sfs_fwrite(f, my_data, sizeof(my_data));
   	    sfs_fseek(f, 0);
   	    sfs_fread(f, out_data, sizeof(out_data)+1);
   	    printf("%s\n", out_data);
