@@ -24,14 +24,17 @@ int main(int argc, char* argv[]) {
 
   	    int f = sfs_fopen("some_name.txt");
 
-  	    char my_data[] = "Lazy dog";
+  	    char my_data[] = "Lazy dog.";
   	    char out_data[1024];
   	    sfs_fwrite(f, my_data, sizeof(my_data));
+        char my_data2[] = "Cool cat.";
+        sfs_fwrite(f, my_data2, sizeof(my_data2));
   	    sfs_fseek(f, 0);
-  	    sfs_fread(f, out_data, sizeof(my_data));
+  	    sfs_fread(f, out_data, sizeof(out_data));
   	    printf("%s\n", out_data);
 
   	    sfs_fclose(f);
+        sfs_remove("some_name.txt");
     } else {
         // Try to read the file that was written when creating a new disk
         int f = sfs_fopen("some_name.txt");

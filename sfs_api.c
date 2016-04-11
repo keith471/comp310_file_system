@@ -362,6 +362,51 @@ int file_has_nth_block(int inode_no, int nth) {
     }
 }
 
+/**
+ * Resets the directory entry at a given index
+ */
+void reset_directory_entry_at_index(int index) {
+    // All this involves is setting the inode number back to 0
+    directory_table[index].inode_no = 0;
+}
+
+/**
+ * Frees all blocks used by the file with inode number inode_no
+ */
+void free_blocks_used_by_inode(int inode_no) {
+    if (inode_table[inode_no].size == 0) {
+        // Nothing was ever written to the file so no blocks to free
+        return;
+    }
+    // Get the last block (we know the first is 0)
+    int last_block = get_sequential_block_number_containing_byte(inode_table[inode_no].size - 1);
+
+    // Free the blocks
+    for (int i = 0; i <= last_block; i++) {
+        int block_no = get_block_number_corresponding_to_nth_block_for_file(inode_no, i);
+        rm_index(block_no);
+    }
+
+    // We also might need to free the block of indirect pointers, if there is one!
+    if (last_block >= NUM_DIRECT_POINTERS) {
+        // A block was allocated for indirect pointers
+        rm_index(inode_table[inode_no].indirect_ptr);
+    }
+
+}
+
+/**
+ * Resets the inode table entry at index inode_no
+ */
+void reset_inode_table_entry(int inode_no) {
+    // Set size back to zero
+    inode_table[inode_no].size = 0;
+    // Set is_used to 0
+    inode_table[inode_no].is_used = 0;
+    // Reset indirect_ptr (for safety)
+    inode_table[inode_no].indirect_ptr = 0;
+}
+
 /*********************
  * Initialization helpers
  *********************/
@@ -490,7 +535,7 @@ void mksfs(int fresh) {
 
         // read the super block from disk into memory
         read_blocks(0, 1, &sb);
-        printf("Block Size is: %llu\n", sb.block_size);
+        printf("Block Size is: %d\n", sb.block_size);
 
         // read the inode table from disk into memory
         read_blocks(1, sb.inode_table_len, inode_table);
@@ -641,9 +686,12 @@ int sfs_fread(int fileID, char *buf, int length) {
         printf("Error: Why would you try to read 0 bytes?\n");
         return 0;
     }
+
+    // If rwptr + length exceeds the file size, we reset length to whatever it needs to be to
+    // reach the end of the file
     if (fd_table[fileID].rwptr + length > inode_table[fd_table[fileID].inode_no].size) {
-        printf("Error: Attempting to read past the end of the file.\n");
-        return -1;
+        length = inode_table[fd_table[fileID].inode_no].size - fd_table[fileID].rwptr;
+        printf("Reset length of read to read only to end of file\n");
     }
 
     // Get the sequential numbers of the first and last blocks we need to read
@@ -868,21 +916,6 @@ int sfs_fseek(int fileID, int loc){
 }
 
 /**
- * Resets the directory entry at a given index
- */
-void reset_directory_entry_at_index(int index) {
-    // All this involves is setting the inode number back to 0
-    directory_table[index].inode_no = 0;
-}
-
-/**
- *
- */
-void free_blocks_used_by_inode(int inode_no) {
-
-}
-
-/**
  * Removes the file with the given name from the directory entry,
  * releases the file allocation table entries, and releases the data
  * blocks used by the file
@@ -897,18 +930,31 @@ int sfs_remove(char *file) {
     }
     // Remeber the inode_no
     int inode_no = directory_table[dir_index].inode_no;
+    printf("Going to delete file with inode number %d\n", inode_no);
+
+    // Search the fd table for the file. If it is in the table, then the file is open. We cannot remove it.
+    int fd_index = get_fd_for_file_with_inode(inode_no);
+    if (fd_index != -1) {
+        printf("Error: The file is currently open. It must be closed before it can be removed\n");
+        return -1;
+    }
 
     // Reset the directory entry
+    printf("Resetting the directory entry\n");
     reset_directory_entry_at_index(dir_index);
 
     // Free blocks for the inode - how? We determine all the blocks (1st to last), and iterate from first to last, freeing them
+    printf("Freeing blocks used by file\n");
     free_blocks_used_by_inode(inode_no);
 
     // Reset the inode table entry
+    printf("Resetting the inode table entry\n");
+    reset_inode_table_entry(inode_no);
 
-    // Search the fd table for the file and reset the fd table entry
-
-    // Flush things to disk
+    // We modified the directory table, the free block map, and the inode table
+    printf("Flushing all to disk\n");
+    flush_all();
+    printf("Successfully removed file\n");
     return 0;
 }
 
@@ -921,7 +967,7 @@ int sfs_remove(char *file) {
  * Sets a specific bit as used
  * index is the number of the bit that we wish to set as used
  */
-void force_set_index(uint32_t index) {
+void force_set_index(unsigned int index) {
     int i = index / 8; // i is the index of the entry of the free_bit_map we wish to change
     int which_bit = index % 8;
     USE_BIT(free_bit_map[i], which_bit);
@@ -930,8 +976,8 @@ void force_set_index(uint32_t index) {
 /**
  * Gets the number of the first available free bit in the bitmap
  */
-uint32_t get_index() {
-    uint32_t i = 0;
+unsigned int get_index() {
+    unsigned int i = 0;
 
     // find the first section with a free bit
     // let's ignore overflow for now...
@@ -951,10 +997,10 @@ uint32_t get_index() {
 /**
  * Frees the bit with number "index"
  */
-void rm_index(uint32_t index) {
+void rm_index(unsigned int index) {
 
     // get index in array of which bit to free
-    uint32_t i = index / 8;
+    unsigned int i = index / 8;
 
     // get which bit to free
     uint8_t bit = index % 8;
