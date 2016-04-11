@@ -3,30 +3,30 @@
 
 #include <stdint.h>
 
-#define MAXFILENAME 60
+#define MAXFILENAME 30
 #define KEITHS_DISK "sfs_disk.disk"
 #define BLOCK_SZ 1024   // Block size in bytes
 #define NUM_BLOCKS 3100  // Number of blocks of the entire disk
 #define NUM_INODES 110   // Number of inodes in the inode table
-#define NUM_INDIRECT_POINTERS BLOCK_SZ/sizeof(int)
+#define NUM_INDIRECT_POINTERS (BLOCK_SZ/sizeof(int))
 #define NUM_DIRECT_POINTERS 12
 #define MAX_BLOCKS_PER_FILE (NUM_DIRECT_POINTERS + NUM_INDIRECT_POINTERS)
-#define MAX_FILE_SIZE BLOCK_SZ * MAX_BLOCKS_PER_FILE // Max file size in bytes
+#define MAX_FILE_SIZE (BLOCK_SZ * MAX_BLOCKS_PER_FILE) // Max file size in bytes
 #define NUM_INODE_BLOCKS (sizeof(inode_t) * NUM_INODES / BLOCK_SZ + 1) // Number of blocks needed to store the inode table, +1 to give ceiling, rather than floor
-#define MAX_DIRECTORY_ENTRIES NUM_INODES - 1  // Maximum number directory entries in the directory table. We can only have as
+#define MAX_DIRECTORY_ENTRIES (NUM_INODES - 1)  // Maximum number directory entries in the directory table. We can only have as
                                               // many files as we have available inodes - 1, as the first inode is always for
                                               // the root directory
-#define ROOT_DIRECTORY_SIZE_IN_BYTES sizeof(directory_entry_t) * MAX_DIRECTORY_ENTRIES
-#define ROOT_DIRECTORY_SIZE_IN_BLOCKS ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ
-#define FD_TABLE_SIZE NUM_INODES - 1
+#define ROOT_DIRECTORY_SIZE_IN_BYTES (sizeof(directory_entry_t) * MAX_DIRECTORY_ENTRIES)
+#define ROOT_DIRECTORY_SIZE_IN_BLOCKS (ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ)
+#define FD_TABLE_SIZE (NUM_INODES - 1)
 
 
 typedef struct {
-    uint64_t magic;       // These are unsigned long long ints
-    uint64_t block_size;
-    uint64_t fs_size;
-    uint64_t inode_table_len;
-    uint64_t root_dir_inode;
+    unsigned int magic;
+    unsigned int block_size;
+    unsigned int fs_size;
+    unsigned int inode_table_len;
+    unsigned int root_dir_inode;
 } superblock_t;
 
 typedef struct {
@@ -41,8 +41,8 @@ typedef struct {
  * rwptr    where in the file to start
  */
 typedef struct {
-    uint64_t inode_no; // The inode number
-    uint64_t rwptr; // The byte of the file the rwpointer is at
+    unsigned int inode_no; // The inode number
+    unsigned int rwptr; // The byte of the file the rwpointer is at
 } file_descriptor_t;  // The file descriptor's number is the index into the merged file descriptor and open files table
 
 /**
@@ -51,8 +51,8 @@ typedef struct {
  * file_name - the name of the file
  */
 typedef struct {
-    uint64_t inode_no;
-    char* file_name;
+    unsigned int inode_no;
+    char file_name[MAXFILENAME];
 } directory_entry_t;
 
 void mksfs(int fresh);
@@ -88,18 +88,18 @@ int sfs_remove(char *file);
  * @param index index to set
  *
  */
-void force_set_index(uint32_t index);
+void force_set_index(unsigned int index);
 
 /*
  * @short find the first free data block
  * @return index of data block to use
  */
-uint32_t get_index();
+unsigned int get_index();
 
 /*
  * @short frees an index
  * @param index the index to free
  */
-void rm_index(uint32_t index);
+void rm_index(unsigned int index);
 
 #endif //_INCLUDE_SFS_API_H_

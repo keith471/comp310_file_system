@@ -32,70 +32,6 @@ int next_dir_index;
  *******************************************************************/
 
 /*********************
- * Flush helpers
- *********************/
-
- /**
-  * Flush superblock
-  */
- void flush_superblock() {
-     write_blocks(0, 1, &sb);
- }
-
-  /**
-   * Flush free bit map
-   */
- void flush_free_bit_map() {
-     write_blocks(1, NUM_BIT_MAP_BLOCKS,  free_bit_map);
- }
-
- /**
-  * Flush inode table
-  */
- void flush_inode_table() {
-     write_blocks(1 + NUM_BIT_MAP_BLOCKS, sb.inode_table_len, inode_table);
- }
-
- /**
-  * Copies the directory_table into a character array and returns a pointer to the start of it
-  */
- /*char* convert_directory_table_to_char_array() {
-     char dir_tbl_as_char_array[sizeof(directory_table)];
-     memcpy(dir_tbl_as_char_array, directory_table, sizeof(directory_table));
-     return dir_tbl_as_char_array;
- }*/
-
- /**
-  * Flush root directory
-  */
-void flush_root_directory() {
-    // We need to flush the entire root directory to disk. This means we have to get the blocks pointed to
-    // by the root directory's inode one by one, and incrementally write the directory_table to these blocks
-    //char* buf = convert_directory_table_to_char_array();
-    // Cast directory_table to a char pointer so we can increment it by bytes rather than sizeof(directory_entry_t)
-    char* p = (char *) directory_table;
-    for (int i = 0, j = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++, j += BLOCK_SZ) {
-       int block_no = get_block_number_containing_byte_for_inode(0, j);
-       if (block_no !=  -1) {
-           write_blocks(block_no, 1, p + j);
-       } else {
-           printf("Attempted to access memory outside of the scope of the directory table - root directory flush failed.\n");
-           break;
-       }
-    }
-}
-
-/**
- * Flush everything to disk
- */
-void flush_all() {
-    flush_superblock();
-    flush_free_bit_map();
-    flush_inode_table();
-    flush_root_directory();
-}
-
-/*********************
  * Getter helpers
  *********************/
 
@@ -122,10 +58,16 @@ int get_next_filled_directory_entry_starting_at(int index) {
  */
 int get_directory_index_for_file_with_name(char *file_name) {
     for (int i = 0; i < MAX_DIRECTORY_ENTRIES; i++) {
-        if (strcmp(directory_table[i].file_name, file_name) == 0) {
-            return i;
+        // Check if the directory table entry is used. If so, check the file name, else continue
+        // If we don't perform this check, and the file_name pointer is null, then we get a seg fault
+        if (directory_table[i].inode_no != 0) {
+            if (strcmp(directory_table[i].file_name, file_name) == 0) {
+                printf("Found directory match at index %d\n", i);
+                return i;
+            }
         }
     }
+    printf("Searched entire directory and did not find file\n");
     return -1;
 }
 
@@ -198,11 +140,14 @@ int get_block_number_corresponding_to_nth_block_for_file(int inode_no, int nth) 
         printf("Error: Attempting to access a block the file does not have.\n");
         return -1;
     }
+    printf("Passed error checks\n");
     // Error check passed. Proceeding.
     if (nth < NUM_DIRECT_POINTERS) {
+        printf("Getting direct pointer\n");
         return inode.data_ptrs[nth];
     } else {
         // We need to read the block of number inode.indirect_ptr into memory
+        printf("Getting indirect pointer\n");
         int indirect_ptrs[NUM_INDIRECT_POINTERS];
         read_blocks(inode.indirect_ptr, 1, indirect_ptrs);
         // Now, we need to return the (nth - NUM_DIRECT_POINTERS)th pointer in the indirect_ptrs array
@@ -242,6 +187,72 @@ int get_sequential_block_number_containing_byte(int byte_no) {
     return byte_no / BLOCK_SZ;
 }
 
+/*********************
+ * Flush helpers
+ *********************/
+
+ /**
+  * Flush superblock
+  */
+ void flush_superblock() {
+     write_blocks(0, 1, &sb);
+ }
+
+  /**
+   * Flush free bit map
+   */
+ void flush_free_bit_map() {
+     write_blocks(1, NUM_BIT_MAP_BLOCKS,  free_bit_map);
+ }
+
+ /**
+  * Flush inode table
+  */
+ void flush_inode_table() {
+     write_blocks(1 + NUM_BIT_MAP_BLOCKS, sb.inode_table_len, inode_table);
+ }
+
+ /**
+  * Copies the directory_table into a character array and returns a pointer to the start of it
+  */
+ /*char* convert_directory_table_to_char_array() {
+     char dir_tbl_as_char_array[sizeof(directory_table)];
+     memcpy(dir_tbl_as_char_array, directory_table, sizeof(directory_table));
+     return dir_tbl_as_char_array;
+ }*/
+
+ /**
+  * Flush root directory
+  */
+void flush_root_directory() {
+    // We need to flush the entire root directory to disk. This means we have to get the blocks pointed to
+    // by the root directory's inode one by one, and incrementally write the directory_table to these blocks
+    //char* buf = convert_directory_table_to_char_array();
+    // Cast directory_table to a char pointer so we can increment it by bytes rather than sizeof(directory_entry_t)
+    char* p = (char *) directory_table;
+    printf("Root directory size in bytes: %d\n", ROOT_DIRECTORY_SIZE_IN_BYTES);
+    for (int i = 0, j = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++, j += BLOCK_SZ) {
+       printf("i: %d, j: %d\n", i, j);
+       int block_no = get_block_number_containing_byte_for_inode(0, j);
+       if (block_no !=  -1) {
+           printf("Writing block %d of root directory\n", i);
+           write_blocks(block_no, 1, p + j);
+       } else {
+           printf("Error: Attempted to access memory outside of the scope of the directory table - root directory flush failed.\n");
+           break;
+       }
+    }
+}
+
+/**
+ * Flush everything to disk
+ */
+void flush_all() {
+    flush_superblock();
+    flush_free_bit_map();
+    flush_inode_table();
+    flush_root_directory();
+}
 
 /*********************
  * Update helpers
@@ -282,9 +293,12 @@ int add_to_fd_table(int inode_no, int rwptr) {
  */
 int add_to_root_directory(int inode_no, char* file_name) {
     int insert_index = get_next_available_directory_entry();
+    printf("Got next available directory entry: %d\n", insert_index);
     if (insert_index != -1) {
         directory_table[insert_index].inode_no = inode_no;
+        printf("Set the directory entry inode number\n");
         strcpy(directory_table[insert_index].file_name, file_name);
+        printf("Set the directory entry file name to %s\n", directory_table[insert_index].file_name);
         flush_root_directory();
         return insert_index;
     } else {
@@ -363,34 +377,42 @@ void init_superblock() {
 /**
  * Initializes the first inode entry in the inode table with the information for the root directory
  */
-void init_root_dir_inode() {
+ void init_root_dir_inode() {
 
-    inode_table[0].size = ROOT_DIRECTORY_SIZE_IN_BYTES;
-    inode_table[0].is_used = 0;
+     printf("Right inside init_rdi\n");
+     inode_table[0].size = ROOT_DIRECTORY_SIZE_IN_BYTES;
+     inode_table[0].is_used = 1;
+     printf("Set inode table entry 0 size and is used\n");
 
-    int indirect_ptrs[NUM_INDIRECT_POINTERS];
-    // Determine the blocks that will store the root directory table
-    for(int i = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++) {
-        int index = get_index(); // Get next free index in the bitmap
-        if (i < NUM_DIRECT_POINTERS) {
-            inode_table[0].data_ptrs[i] = index;
-        } else if (i == NUM_DIRECT_POINTERS) {
-            // set the indirect ptr to point to a block
-            inode_table[0].indirect_ptr = index;
-            // Get another block number for the 12th block of the directory table
-            index = get_index();
-            indirect_ptrs[0] = index;
-        } else {
-            indirect_ptrs[i - NUM_DIRECT_POINTERS] = index;
-        }
-    }
+     int indirect_ptrs[NUM_INDIRECT_POINTERS];
+     printf("Blocks for root directory: %d\n", ROOT_DIRECTORY_SIZE_IN_BLOCKS);
+     // Determine the blocks that will store the root directory table
+     for(int i = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++) {
+         int index = get_index(); // Get next free index in the bitmap
+         if (i < NUM_DIRECT_POINTERS) {
+             printf("Adding a direct pointer\n");
+             inode_table[0].data_ptrs[i] = index;
+         } else if (i == NUM_DIRECT_POINTERS) {
+             printf("Adding first indirect pointer\n");
+             // set the indirect ptr to point to a block
+             inode_table[0].indirect_ptr = index;
+             // Get another block number for the 12th block of the directory table
+             index = get_index();
+             indirect_ptrs[0] = index;
+         } else {
+             printf("Adding additional indirect pointers\n");
+             indirect_ptrs[i - NUM_DIRECT_POINTERS] = index;
+         }
+     }
 
-    // Write the block of indirect pointers to disk, if necessary
-    if (inode_table[0].indirect_ptr != 0) {
-        write_blocks(inode_table[0].indirect_ptr, 1, indirect_ptrs);
-    }
+     // Write the block of indirect pointers to disk, if necessary
+     if (inode_table[0].indirect_ptr != 0) {
+         printf("Writing indirect pointers to disk\n");
+         write_blocks(inode_table[0].indirect_ptr, 1, indirect_ptrs);
+         printf("Wrote indirect pointers to disk\n");
+     }
 
-}
+ }
 
 /**
  * Initializes the global "next_dir_index" to the first used directory table entry
@@ -418,15 +440,19 @@ void mksfs(int fresh) {
 
         init_fresh_disk(KEITHS_DISK, BLOCK_SZ, NUM_BLOCKS);
 
+        printf("Init fresh disk passed\n");
         /**
          * SUPERBLOCK
          */
         // create super block
         init_superblock();
+
+        printf("Init superblock passed\n");
         // Use first block for the superblock
         force_set_index(0);
         write_blocks(0, 1, &sb);
 
+        printf("Wrote superblock\n");
         /**
          * FREE BIT MAP
          * Reserve blocks for the free bit map
@@ -434,7 +460,7 @@ void mksfs(int fresh) {
         for (int i = 0; i < NUM_BIT_MAP_BLOCKS; i++) {
             get_index();
         }
-
+        printf("Got blocks for free bit map\n");
         /**
          * INODE TABLE
          */
@@ -442,13 +468,20 @@ void mksfs(int fresh) {
         for (int i = 0; i < NUM_INODE_BLOCKS; i++) {
             get_index();
         }
+        printf("Got blocks for inode table\n");
         // Set the first entry in the inode table to be an inode_t for the root directory
         init_root_dir_inode();
+
+        printf("Initialized root directory\n");
         // write inode table to disk
         write_blocks(1+NUM_BIT_MAP_BLOCKS, sb.inode_table_len, inode_table);
 
+        printf("Wrote inode table to disk\n");
         // Write free bit map to disk
         write_blocks(1, NUM_BIT_MAP_BLOCKS,  free_bit_map);
+
+        printf("Wrote bit map to disk\n");
+
 
     } else {
         printf("reopening file system\n");
@@ -552,6 +585,7 @@ int sfs_fopen(char *name) {
         // Get an inode for the file
         int inode_no = get_next_available_inode();
         if (inode_no != -1) {
+            printf("The next available inode is: %d\n", inode_no);
             printf("Creating new inode for file\n");
             // Initialize the inode
             initialize_new_inode(inode_no);
@@ -648,8 +682,7 @@ int sfs_fread(int fileID, char *buf, int length) {
  * as determined from the file descriptor table.
  * This could increase the size of the file.
  * Returns the number of bytes written
- * QUESTION: If I increase the size of the file, then I am actually writing length + 1 bytes,
- * due to the null terminator. Is this a problem?
+ * Question: How to handle a null pointer
  */
 int sfs_fwrite(int fileID, const char *buf, int length){
 
@@ -664,6 +697,10 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     // Overwrite relevant part of the array
     // Write the blocks back to memory
     // Update data structures in memory and write them back to disk
+    printf("Length of write: %d bytes\n", length);
+    for (int i = 0; i < length; i++) {
+        printf("Char %d of write: %c\n", i, *(buf + i));
+    }
 
     int rwptr = fd_table[fileID].rwptr;
     int inode_no = fd_table[fileID].inode_no;
@@ -705,11 +742,11 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     memcpy(temp_buf + (rwptr % BLOCK_SZ), buf, length);
 
     // If we are extending the file, then add a new null terminator to the end of the file
-    if (extending_file) {
+    /*if (extending_file) {
         printf("Extending file, so adding null terminator\n");
         temp_buf[(rwptr % BLOCK_SZ) + length] = '\0';
         // QUESTION: Do we increment length to indicate that we wrote a new null terminator as well?
-    }
+    }*/
 
     // Write the blocks back to disk!
     for (int i = first_block; i <= last_block; i++) {
@@ -717,7 +754,8 @@ int sfs_fwrite(int fileID, const char *buf, int length){
         // Could have stored the block numbers in an array or something, but since we are not worried
         // about the most efficient implementation, I don't bother
         int block_no = get_block_number_corresponding_to_nth_block_for_file(inode_no, i);
-        write_blocks(block_no, 1, temp_buf + (i % first_block) * BLOCK_SZ);
+        write_blocks(block_no, 1, temp_buf + (first_block == 0 ? i : (i % first_block)) * BLOCK_SZ);
+        printf("Wrote block %d for file back to disk\n", i);
     }
 
     // Have to increase file size before we can seek to the end of the file
