@@ -559,6 +559,18 @@ int sfs_fopen(char *name) {
     // 3. Set the file size to zero
     printf("Opening file\n");
 
+    // Error checking - check the length of the file name
+    int i = 0;
+    while (*(name + i) != '\0') {
+        i++;
+    }
+    i++;
+    if (i > MAXFILENAME) {
+        printf("Error: The file name can be a maximum of %d characters, including the extension\n", MAXFILENAME);
+        return -1;
+    }
+    printf("The file name consists of %d characters, including null terminator\n", i);
+
     // Search the directory for the file
     int index = get_directory_index_for_file_with_name(name);
     if (index != -1) {
@@ -646,13 +658,12 @@ int sfs_fread(int fileID, char *buf, int length) {
     // Iterate, reading one block at a time, and writing it to temp_buf
     for (int i = first_block; i <= last_block; i++) {
         int block_no = get_block_number_corresponding_to_nth_block_for_file(fd_table[fileID].inode_no, i);
-        read_blocks(block_no, 1, temp_buf + (i % first_block) * BLOCK_SZ);
+        read_blocks(block_no, 1, temp_buf + (first_block == 0 ? i : (i % first_block)) * BLOCK_SZ);
     }
 
     // Copy the bytes we want from temp_buf into buf
     memcpy(buf, temp_buf + (fd_table[fileID].rwptr % BLOCK_SZ), length);
 
-    // QUESTION: Is this correct?
     // Lastly, we need to increase the rwptr for the file
     /*if (fd_table[fileID].rwptr + length == inode_table[fd_table[fileID].inode_no].size) {
         // Seek to the last byte of the file
@@ -662,9 +673,7 @@ int sfs_fread(int fileID, char *buf, int length) {
         sfs_fseek(fileID, fd_table[fileID].rwptr + length);
     }*/
     // Seek to the first byte after the sequence you just read
-    // This is fine because, even if the read took us to the last byte of actual content of the file,
-    // there is still one more byte in the file, the null pointer
-    sfs_fseek(fileID, fd_table[fileID].rwptr + length);
+    sfs_fseek(fileID, fd_table[fileID].rwptr + length - 1);
 
     printf("Done read\n");
 
@@ -682,7 +691,6 @@ int sfs_fread(int fileID, char *buf, int length) {
  * as determined from the file descriptor table.
  * This could increase the size of the file.
  * Returns the number of bytes written
- * Question: How to handle a null pointer
  */
 int sfs_fwrite(int fileID, const char *buf, int length){
 
@@ -725,7 +733,7 @@ int sfs_fwrite(int fileID, const char *buf, int length){
             if (block_no == -1) {
                 return -1; // error
             }
-            read_blocks(block_no, 1, temp_buf + (i % first_block) * BLOCK_SZ);
+            read_blocks(block_no, 1, temp_buf + (first_block == 0 ? i : (i % first_block)) * BLOCK_SZ);
         } else {
             printf("Allocating %dth block for file\n", i);
             // Allocate a new block for the file
@@ -762,7 +770,7 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     if (extending_file) {
         printf("Extending file, so updating file size\n");
         // Update the file size, and write the inode table back to disk
-        inode_table[inode_no].size = rwptr + length + 1;
+        inode_table[inode_no].size = rwptr + length;
         flush_inode_table();
 
         // Flush the free bit map if need be
@@ -773,13 +781,14 @@ int sfs_fwrite(int fileID, const char *buf, int length){
     }
 
     // Update the rwpointer for the file
-    sfs_fseek(fileID, rwptr + length);
+    printf("Seeking to end of file as we've completed a write\n");
+    sfs_fseek(fileID, rwptr + length - 1);
 
-    if (extending_file) {
+    /*if (extending_file) {
         printf("Write done. Extended file, so returning length of length + 1\n");
         return length + 1;
-    }
-    printf("Write done. Did not extend file, so returning length length\n");
+    }*/
+    printf("Write done. Returning length\n");
     return length;
 
     /*
@@ -859,11 +868,47 @@ int sfs_fseek(int fileID, int loc){
 }
 
 /**
+ * Resets the directory entry at a given index
+ */
+void reset_directory_entry_at_index(int index) {
+    // All this involves is setting the inode number back to 0
+    directory_table[index].inode_no = 0;
+}
+
+/**
+ *
+ */
+void free_blocks_used_by_inode(int inode_no) {
+
+}
+
+/**
  * Removes the file with the given name from the directory entry,
  * releases the file allocation table entries, and releases the data
  * blocks used by the file
+ * Returns -1 if error and 0 if success
  */
 int sfs_remove(char *file) {
+    // Search the directory for the file name
+    int dir_index = get_directory_index_for_file_with_name(file);
+    if (dir_index == -1) {
+        printf("Error: The file you are trying to remove does not exist\n");
+        return -1;
+    }
+    // Remeber the inode_no
+    int inode_no = directory_table[dir_index].inode_no;
+
+    // Reset the directory entry
+    reset_directory_entry_at_index(dir_index);
+
+    // Free blocks for the inode - how? We determine all the blocks (1st to last), and iterate from first to last, freeing them
+    free_blocks_used_by_inode(inode_no);
+
+    // Reset the inode table entry
+
+    // Search the fd table for the file and reset the fd table entry
+
+    // Flush things to disk
     return 0;
 }
 

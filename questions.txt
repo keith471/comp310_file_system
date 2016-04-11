@@ -1,3 +1,6 @@
+1. When reading, if you try to read more bytes than are in the file, my implementation
+gives an error. Is this problematic? I imagine so. 
+
 
 For testing fuse wrapper
 echo "some stuff" > out.txt

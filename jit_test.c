@@ -28,7 +28,7 @@ int main(int argc, char* argv[]) {
   	    char out_data[1024];
   	    sfs_fwrite(f, my_data, sizeof(my_data));
   	    sfs_fseek(f, 0);
-  	    sfs_fread(f, out_data, sizeof(out_data)+1);
+  	    sfs_fread(f, out_data, sizeof(my_data));
   	    printf("%s\n", out_data);
 
   	    sfs_fclose(f);
