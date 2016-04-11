@@ -100,10 +100,8 @@ int read_blocks(int start_address, int nblocks, void *buffer)
     s = 0;
 
 
-    printf("1\n");
     /*Sets up a temporary buffer*/
     void* blockRead = (void*) malloc(BLOCK_SIZE);
-    printf("2\n");
 
     /*Checks that the data requested is within the range of addresses of the disk*/
     if (start_address + nblocks > MAX_BLOCK)
@@ -114,7 +112,6 @@ int read_blocks(int start_address, int nblocks, void *buffer)
 
     /*Goto the data requested from the disk*/
     fseek(fp, start_address * BLOCK_SIZE, SEEK_SET);
-    printf("3\n");
     /*For every block requested*/
     for (i = 0; i < nblocks; ++i)
     {

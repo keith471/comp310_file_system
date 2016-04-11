@@ -1,5 +1,5 @@
 /* sfs_test.c 
- * 
+ *
  * Written by Robert Vincent for Programming Assignment #1.
  */
 #include <stdio.h>
@@ -18,7 +18,7 @@
  * do not _require_ that you support this many files. This is just to
  * test the behavior of your code.
  */
-#define MAX_FD 100 
+#define MAX_FD 100
 
 /* The maximum number of bytes we'll try to write to a file. If you
  * support much shorter or larger files for some reason, feel free to
@@ -37,12 +37,12 @@ static char test_str[] = "The quick brown fox jumps over the lazy dog.\n";
  * each 'x' is a random upper-case letter (A-Z). Feel free to modify
  * this function if your implementation requires shorter filenames, or
  * supports longer or different file name conventions.
- * 
+ *
  * The return value is a pointer to the new string, which may be
  * released by a call to free() when you are done using the string.
  */
- 
-char *rand_name() 
+
+char *rand_name()
 {
   char fname[MAX_FNAME_LENGTH];
   int i;
@@ -124,7 +124,7 @@ main(int argc, char **argv)
       }
       tmp = sfs_fwrite(fds[i], buffer, chunksize);
       if (tmp != chunksize) {
-        fprintf(stderr, "ERROR: Tried to write %d bytes, but wrote %d\n", 
+        fprintf(stderr, "ERROR: Tried to write %d bytes, but wrote %d\n",
                 chunksize, tmp);
         error_count++;
       }
@@ -146,7 +146,7 @@ main(int argc, char **argv)
   printf("File %s now has length %d and %s now has length %d:\n",
          names[0], filesize[0], names[1], filesize[1]);
 
-  /* Just to be cruel - attempt to read from a closed file handle. 
+  /* Just to be cruel - attempt to read from a closed file handle.
    */
   if (sfs_fread(fds[1], fixedbuf, sizeof(fixedbuf)) > 0) {
     fprintf(stderr, "ERROR: read from a closed file handle?\n");
@@ -154,10 +154,10 @@ main(int argc, char **argv)
   }
 
   fds[1] = sfs_fopen(names[1]);
-  
+
   sfs_fseek(fds[0], 0);
   sfs_fseek(fds[1], 0);
-  
+
   for (i = 0; i < 2; i++) {
     for (j = 0; j < filesize[i]; j += chunksize) {
       if ((filesize[i] - j) < 10) {
@@ -233,7 +233,7 @@ main(int argc, char **argv)
   for (i = 0; i < nopen; i++) {
     tmp = sfs_fwrite(fds[i], test_str, strlen(test_str));
     if (tmp != strlen(test_str)) {
-      fprintf(stderr, "ERROR: Tried to write %d, returned %d\n", 
+      fprintf(stderr, "ERROR: Tried to write %d, returned %d\n",
               (int)strlen(test_str), tmp);
       error_count++;
     }
@@ -266,7 +266,7 @@ main(int argc, char **argv)
         error_count++;
       }
       if (ch != test_str[j]) {
-        fprintf(stderr, "ERROR: Read wrong byte from %s at %d (%d,%d)\n", 
+        fprintf(stderr, "ERROR: Read wrong byte from %s at %d (%d,%d)\n",
                 names[i], j, ch, test_str[j]);
         error_count++;
         break;
@@ -299,7 +299,7 @@ main(int argc, char **argv)
 
       for (j = 0; j < strlen(test_str); j++) {
         if (test_str[j] != fixedbuf[j]) {
-          fprintf(stderr, "ERROR: Wrong byte in %s at %d (%d,%d)\n", 
+          fprintf(stderr, "ERROR: Wrong byte in %s at %d (%d,%d)\n",
                   names[i], j, fixedbuf[j], test_str[j]);
           printf("%d\n", fixedbuf[1]);
           error_count++;
@@ -362,7 +362,7 @@ main(int argc, char **argv)
 
       for (j = 0; j < strlen(test_str); j++) {
         if (test_str[j] != fixedbuf[j]) {
-          fprintf(stderr, "ERROR: Wrong byte in %s at position %d (%d,%d)\n", 
+          fprintf(stderr, "ERROR: Wrong byte in %s at position %d (%d,%d)\n",
                   names[i], j, fixedbuf[j], test_str[j]);
           error_count++;
           break;
@@ -379,4 +379,3 @@ main(int argc, char **argv)
   fprintf(stderr, "Test program exiting with %d errors\n", error_count);
   return (error_count);
 }
-
