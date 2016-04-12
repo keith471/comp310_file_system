@@ -46,6 +46,18 @@ int main(int argc, char* argv[]) {
 
   	    printf("%s\n", out_data2);
 
+        printf("The size of file 1 is: %d\n", sfs_getfilesize("/some_name.txt"));
+        printf("The size of file 2 is: %d\n", sfs_getfilesize("keith.txt"));
+
+        char filename[30];
+        while(sfs_getnextfilename(filename)) {
+            printf("filename = %s\n", filename);
+        }
+
+        while(sfs_getnextfilename(filename)) {
+            printf("filename = %s\n", filename);
+        }
+
   	    sfs_fclose(f);
         sfs_fclose(f2);
 

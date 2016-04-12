@@ -1,0 +1,22 @@
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ mkdir /tmp/keith
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ./Keith_Strickling_sfs /tmp/keith/
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ls /tmp/keith/
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ls -a /tmp/keith/
+.  ..
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ cat >  /tmp/keith/ff
+dfdsfds
+cat: write error: Input/output error
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ls -a /tmp/keith/
+.  ..
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ps axwu | grep keith
+kstric   18392  0.0  0.0 158680   380 ?        Ssl  16:33   0:00 ./Keith_Strickling_sfs /tmp/keith/
+kstric   32004  0.0  0.0  16936  2308 pts/9    S+   16:34   0:00 grep keith
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ touch /tmp/keith/fff
+touch: setting times of ‘/tmp/keith/fff’: Function not implemented
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ echo "fdfdf" >  /tmp/keith/dfd
+-bash: echo: write error: Input/output error
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ls /tmp/keith/
+(trusty)kstric@teaching:~/Documents/3rdyear/2ndterm/310/file_system_assignment/comp310_file_system$ ls -al /tmp/keith/
+total 12
+drwxr-xr-x   2 root root     0 Dec 31  1969 .
+drwxrwxrwt 134 root root 12288 Apr 11 16:35 ..

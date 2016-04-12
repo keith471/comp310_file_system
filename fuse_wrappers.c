@@ -13,6 +13,8 @@
 #include "disk_emu.h"
 #include "sfs_api.h"
 
+FILE* log_fd;
+
 static int fuse_getattr(const char *path, struct stat *stbuf)
 {
     int res = 0;
@@ -136,6 +138,9 @@ static int fuse_truncate(const char *path, off_t size)
 
     strcpy(filename, path);
 
+    fprintf(log_fd, "fuse_truncate:: filename = %s\n", path);
+    fflush(log_fd);
+
     fd = sfs_remove(filename);
     if (fd == -1)
         return -errno;
@@ -147,11 +152,15 @@ static int fuse_truncate(const char *path, off_t size)
 
 static int fuse_access(const char *path, int mask)
 {
+    fprintf(log_fd, "fust_access:: pathname = %s\n", path);
+    fflush(log_fd);
     return 0;
 }
 
 static int fuse_mknod(const char *path, mode_t mode, dev_t rdev)
 {
+    fprintf(log_fd, "fuse_mknod:: pathname = %s\n", path);
+    fflush(log_fd);
     return 0;
 }
 
@@ -159,6 +168,9 @@ static int fuse_create (const char *path, mode_t mode, struct fuse_file_info *fp
 {
     char filename[MAXFILENAME];
     int fd;
+
+    fprintf(log_fd, "fuse_create:: filename = %s\n", path);
+    fflush(log_fd);
 
     strcpy(filename, path);
     fd = sfs_fopen(filename);
@@ -183,6 +195,13 @@ static struct fuse_operations xmp_oper = {
 int main(int argc, char *argv[])
 {
     mksfs(1);
+
+    log_fd = fopen("log.txt", "w");
+
+    if(log_fd == NULL) {
+        perror("Error");
+        return 0;
+    }
 
     return fuse_main(argc, argv, &xmp_oper, NULL);
 }
