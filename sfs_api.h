@@ -17,7 +17,7 @@
                                               // many files as we have available inodes - 1, as the first inode is always for
                                               // the root directory
 #define ROOT_DIRECTORY_SIZE_IN_BYTES (sizeof(directory_entry_t) * MAX_DIRECTORY_ENTRIES)
-#define ROOT_DIRECTORY_SIZE_IN_BLOCKS (ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ)
+#define ROOT_DIRECTORY_SIZE_IN_BLOCKS ((ROOT_DIRECTORY_SIZE_IN_BYTES / BLOCK_SZ) + 1)
 #define FD_TABLE_SIZE (NUM_INODES - 1)
 
 

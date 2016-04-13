@@ -112,6 +112,9 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
     fflush(log_fd);
     return -errno;
   }
+  if(sfs_fseek(fd, offset) == -1) {
+    return -errno;
+  }
 	res = sfs_fread(fd, buf, size);
 	if (res == -1) {
     fprintf(log_fd, "read error in xmp_read\n");
@@ -131,18 +134,19 @@ static int xmp_write(const char *path, const char *buf, size_t size,
 
 	char filename[MAXFILENAME];
 
-        strcpy(filename, &path[1]);
-        fd = sfs_fopen(filename);
+  strcpy(filename, &path[1]);
+  fd = sfs_fopen(filename);
 	if (fd == -1) {
-            fprintf(log_fd, "xmp_write::why is this not working??\n");
-            fflush(log_fd);
-            return -errno;
-        }
-        fprintf(log_fd, "xmp_write:: filename = %s\n", filename);
-        fflush(log_fd);
+      fprintf(log_fd, "xmp_write::why is this not working??\n");
+      fflush(log_fd);
+      return -errno;
+  }
+  fprintf(log_fd, "xmp_write:: filename = %s\n", filename);
+  fflush(log_fd);
 	res = sfs_fwrite(fd, buf, size);
-	if (res == -1)
-		res = -errno;
+	if (res == -1) {
+    res = -errno;
+  }
 	sfs_fclose(fd);
 	return res;
 }
@@ -207,31 +211,12 @@ static struct fuse_operations xmp_oper = {
 
 int main(int argc, char *argv[])
 {
-	mksfs(0);
+	mksfs(1);
   log_fd = fopen("log.txt", "w");
 
   if(log_fd == NULL) {
       perror("Error");
       return 0;
-  }
-
-  /*int i = sfs_fopen("test.txt");
-  char string1[] = "12345678910\n";
-  sfs_fwrite(i, string1, sizeof(string1));
-  sfs_fclose(i);
-
-  i = sfs_fopen("scdfile.txt");
-  char string2[] = "This is the second file\n";
-  sfs_fwrite(i, string2, sizeof(string2));
-  sfs_fclose(i);
-
-  //i = sfs_fopen("one.txt");
-  //sfs_fclose(i);*/
-
-  char filename[MAXFILENAME];
-
-  while(sfs_getnextfilename(filename)) {
-      printf("filename = %s.\n", filename);
   }
 
 	return fuse_main(argc, argv, &xmp_oper, NULL);

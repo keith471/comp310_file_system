@@ -46,6 +46,7 @@ int get_next_filled_directory_entry_starting_at(int index) {
     }
     for (int i = index; i < MAX_DIRECTORY_ENTRIES; i++) {
         if (directory_table[i].inode_no != 0) {
+            printf("The directory entry at index %d is %d\n", i, directory_table[i].inode_no);
             return i;
         }
     }
@@ -231,12 +232,15 @@ void flush_root_directory() {
     //char* buf = convert_directory_table_to_char_array();
     // Cast directory_table to a char pointer so we can increment it by bytes rather than sizeof(directory_entry_t)
     char* p = (char *) directory_table;
-    printf("Root directory size in bytes: %d\n", ROOT_DIRECTORY_SIZE_IN_BYTES);
+    printf("FLUSHING THE ROOT DIRECTORY\n");
+    printf("The root directory size in bytes is: %d\n", ROOT_DIRECTORY_SIZE_IN_BYTES);
+    printf("The root directory size in blocks is: %d\n", ROOT_DIRECTORY_SIZE_IN_BLOCKS);
     for (int i = 0, j = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++, j += BLOCK_SZ) {
        printf("i: %d, j: %d\n", i, j);
-       int block_no = get_block_number_containing_byte_for_inode(0, j);
+       int block_no = get_block_number_corresponding_to_nth_block_for_file(0, i);
        if (block_no !=  -1) {
            printf("Writing block %d of root directory\n", i);
+           printf("Write of 1 block starting at byte %d\n", j);
            write_blocks(block_no, 1, p + j);
        } else {
            printf("Error: Attempted to access memory outside of the scope of the directory table - root directory flush failed.\n");
@@ -494,7 +498,7 @@ void restore_directory_table() {
     //char* p = (char *) directory_table;
     for (int i = 0, j = 0; i < ROOT_DIRECTORY_SIZE_IN_BLOCKS; i++, j += BLOCK_SZ) {
        printf("i: %d, j: %d\n", i, j);
-       int block_no = get_block_number_containing_byte_for_inode(0, j);
+       int block_no = get_block_number_corresponding_to_nth_block_for_file(0, i);
        read_blocks(block_no, 1, dir_table + j);
     }
     memcpy(directory_table, dir_table, sizeof(directory_table));
@@ -717,7 +721,6 @@ int sfs_fclose(int fileID){
  */
 int sfs_fread(int fileID, char *buf, int length) {
 
-    fd_table[fileID].rwptr = 0;
     printf("Rwptr at start of read: %d\n", fd_table[fileID].rwptr);
 
 
