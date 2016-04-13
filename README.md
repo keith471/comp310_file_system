@@ -14,7 +14,9 @@ This implementation is to be assessed by Professor Maheswaran (as per his permis
     - echo "more stuff" >> /tmp/test/out.txt
     - cat /tmp/test/out.txt
     - touch /tmp/test/new.txt
+    - rm /tmp/test/out.txt
     - vim /tmp/test/new.txt
+6. The main function is in complete_ex.c. It is set up to initialize a new disk. Change the parameter passed to mksfs to 0 to load an existing disk, after you've initialized one!
 
 ## Limitations
 1. The number of inodes is fixed, as is the number of blocks on disk.
